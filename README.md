@@ -2,9 +2,9 @@
 
 This project is a small TCP client-server quiz application. It demonstrates how two independent Python programs can exchange structured requests, validate input, and keep track of a user's score. The goal is to practice reliable message framing, request handling, and clear separation between a client interface and server logic.
 
-Start the server in one terminal and the client in another. The client can retrieve multiple-choice questions, submit answers, and request the current score. The server accepts multiple connections; each connection has its own quiz progress and score. Reconnecting starts a new session.
+Start the server in one terminal and the client in another. The client automatically presents five multiple-choice questions, advances after each answer, and displays the final score only after the fifth answer. The server accepts multiple connections; each connection has its own quiz progress and score. Reconnecting starts a new session.
 
-**Software Demo Video:** [Add your YouTube demonstration link here](https://www.youtube.com/)
+**Software Demo Video:** [https://youtu.be/BeAsIgZbim4)
 
 # Network Communication
 
@@ -55,7 +55,7 @@ In a second terminal:
 python client.py
 ```
 
-Choose `1` to get a question, `2` to submit an answer, `3` to check the score, or `4` to quit. To connect to a server on another host or port:
+The client starts the five-question quiz automatically. Submit an answer for each question to advance to the next one. The final score appears only after the fifth answer. To connect to a server on another host or port:
 
 ```text
 python client.py --host 127.0.0.1 --port 5001
@@ -67,25 +67,22 @@ Quit and relaunch the client to reconnect. The server remains running and accept
 
 ```text
 Connected to quiz server at 127.0.0.1:5000.
-1) Get a question
-2) Submit an answer
-3) Get score
-4) Quit
-Choose an action: 1
 
+Question 1 of 5
 Which protocol provides a reliable, ordered byte stream?
   A) UDP
   B) TCP
   C) ICMP
   D) ARP
 
-Choose an action: 2
 Your answer (A-D): B
 Correct!
-Score: 1
 
-Choose an action: 3
-Current score: 1
+Question 2 of 5
+...
+
+Final score: 5 out of 5
+Quiz complete!
 ```
 
 An incorrect answer is reported explicitly and does not increase the score:
@@ -93,7 +90,6 @@ An incorrect answer is reported explicitly and does not increase the score:
 ```text
 Your answer (A-D): A
 Incorrect. The correct answer is B.
-Score: 0
 ```
 
 ## Tests

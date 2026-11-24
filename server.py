@@ -44,11 +44,35 @@ QUESTIONS = (
         },
         "answer": "C",
     },
+    {
+        "id": "Q4",
+        "question": "What does JSON stand for?",
+        "choices": {
+            "A": "Java Serialized Object Notation",
+            "B": "JavaScript Object Notation",
+            "C": "Joined Socket Operations Network",
+            "D": "Java Standard Operations Notation",
+        },
+        "answer": "B",
+    },
+    {
+        "id": "Q5",
+        "question": "What transport protocol is used by this quiz application?",
+        "choices": {
+            "A": "UDP",
+            "B": "TCP",
+            "C": "HTTP",
+            "D": "FTP",
+        },
+        "answer": "B",
+    },
 )
+
+QUESTION_COUNT = len(QUESTIONS)
 
 
 def error_response(code, message):
-    """Create the common error envelope used by all protocol failures."""
+    """Build an error response with a machine-readable code and a readable message."""
     return {"ok": False, "error": {"code": code, "message": message}}
 
 
@@ -68,10 +92,14 @@ def process_request(request, session):
             return error_response(
                 "invalid_fields", "GET_QUESTION accepts only the 'type' field."
             )
+        if session["questions_answered"] >= QUESTION_COUNT:
+            return error_response(
+                "quiz_complete",
+                "The quiz is complete. Request GET_SCORE for the final score.",
+            )
         question = QUESTIONS[session["next_question_index"]]
-        session["next_question_index"] = (
-            session["next_question_index"] + 1
-        ) % len(QUESTIONS)
+        session["next_question_index"] += 1
+        question_number = session["questions_answered"] + 1
         session["current_question"] = question
         session["answered"] = False
         return {
@@ -80,6 +108,8 @@ def process_request(request, session):
             "question_id": question["id"],
             "question": question["question"],
             "choices": question["choices"],
+            "question_number": question_number,
+            "question_count": QUESTION_COUNT,
         }
 
     if request_type == "SUBMIT_ANSWER":
@@ -112,6 +142,7 @@ def process_request(request, session):
 
         correct = answer.upper() == question["answer"]
         session["answered"] = True
+        session["questions_answered"] += 1
         if correct:
             session["score"] += 1
         return {
@@ -119,7 +150,9 @@ def process_request(request, session):
             "type": "ANSWER_RESULT",
             "correct": correct,
             "message": "Correct!" if correct else f"Incorrect. The correct answer is {question['answer']}.",
-            "score": session["score"],
+            "questions_answered": session["questions_answered"],
+            "question_count": QUESTION_COUNT,
+            "quiz_complete": session["questions_answered"] >= QUESTION_COUNT,
         }
 
     if request_type == "GET_SCORE":
@@ -138,6 +171,7 @@ class QuizRequestHandler(socketserver.StreamRequestHandler):
     """Handle multiple newline-delimited requests on one TCP connection."""
 
     def handle(self):
+        """Process this client's requests until it disconnects or sends invalid framing."""
         peer = f"{self.client_address[0]}:{self.client_address[1]}"
         logging.info("Client connected: %s", peer)
         session = {
@@ -145,6 +179,7 @@ class QuizRequestHandler(socketserver.StreamRequestHandler):
             "current_question": None,
             "answered": False,
             "next_question_index": 0,
+            "questions_answered": 0,
         }
 
         try:
@@ -182,6 +217,7 @@ class QuizRequestHandler(socketserver.StreamRequestHandler):
             logging.info("Client disconnected: %s", peer)
 
     def _send(self, response):
+        """Serialize a response as UTF-8 JSON and send it with a newline frame."""
         payload = json.dumps(response, separators=(",", ":")).encode("utf-8") + b"\n"
         self.request.sendall(payload)
 
@@ -194,6 +230,7 @@ class QuizTCPServer(socketserver.ThreadingTCPServer):
 
 
 def main():
+    """Parse command-line settings and run the quiz server until interrupted."""
     parser = argparse.ArgumentParser(description="Run the TCP quiz server.")
     parser.add_argument("--host", default=DEFAULT_HOST, help="Interface to bind to.")
     parser.add_argument(
